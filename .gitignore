@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+*.egg-info/
+*.egg
+.eggs/
+.installed.cfg
+*.egg-info
+
+# Virtual env
+.venv/
+venv/
+env/
+ENV/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+installer/
+playwright_browsers/
+*.spec.bak
+
+# Spec / planning docs (internal)
+.trae/
+docs/superpowers/
+
+# Cookies (do not commit)
+cookies.json
+*.cookies

@@ -1,0 +1,142 @@
+name: Build Windows Installer
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: 'false'
+      tag:
+        description: 'Tag name (for manual run, e.g. v1.0.0)'
+        required: false
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Install Playwright Chromium (bundled)
+        shell: pwsh
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}\playwright_browsers
+        run: playwright install chromium
+
+      - name: Build with PyInstaller
+        shell: pwsh
+        run: pyinstaller --noconfirm --clean douyin_dl.spec
+
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist\DouyinDownloader\DouyinDownloader.exe")) {
+            throw "Build failed: DouyinDownloader.exe not found"
+          }
+          Get-ChildItem dist\DouyinDownloader | Select-Object -First 10
+
+      - name: Compile installer with Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc installer.iss
+
+      - name: Verify installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem installer\*.exe | Select-Object -First 1
+          if (-not $installer) { throw "Installer not built" }
+          Write-Host "Installer: $($installer.Name), Size: $([math]::Round($installer.Length/1MB,2)) MB"
+
+      - name: Determine tag
+        id: tag
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -match 'refs/tags/(v.*)') {
+            $tag = $matches[1]
+          } elseif ($env:INPUT_TAG) {
+            $tag = $env:INPUT_TAG
+          } else {
+            $tag = "v1.0.0-$(Get-Date -Format 'yyyyMMddHHmm')"
+          }
+          Write-Host "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DouyinDownloader-win64-setup
+          path: installer\*.exe
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: 抖音下载器 ${{ steps.tag.outputs.tag }}
+          body: |
+            # 抖音下载器 ${{ steps.tag.outputs.tag }}
+
+            ## 下载安装
+
+            1. 下载下方 `DouyinDownloader-*-win64-setup.exe`
+            2. 双击运行，按提示安装
+            3. 安装完成后从开始菜单或桌面快捷方式启动
+
+            ## 系统要求
+
+            - Windows 10/11 64 位
+            - 首次启动时如需登录抖音，会自动弹出 Chromium 浏览器扫码窗口
+            - 已内置 Chromium，无需额外安装
+
+            ## 功能
+
+            - **GUI 界面**：粘贴链接、选画质、点开始，表格实时显示进度
+            - **CLI 入口**：命令行 `douyin-dl` 也可用
+            - 支持普通视频 + 日常/Story 视频
+            - Cookie 自动持久化（24 小时免重登）
+            - 支持取消（当前下载的文件会跑完）
+            - 失败原因显示在表格「失败原因」列，并写入 `errors.log`
+
+            ## CLI 用法（也可用）
+
+            ```bash
+            douyin-dl "https://v.douyin.com/abc/" "https://v.douyin.com/def/"
+            douyin-dl -f links.txt -o ./downloads
+            ```
+
+            ## 故障排查
+
+            - **报 401/403**：删除 `%USERPROFILE%\.douyin_dl\cookies.json` 重启程序重新扫码
+            - **412 风控**：增大 `Config.sleep_range`，避免短时间批量超过 50 条
+            - **CDN 403**：视频链接已过期（24h 有效），重跑获取新链接
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+          files: |
+            installer/*.exe

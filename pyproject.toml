@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "douyin_dl"
+version = "0.1.0"
+description = "抖音批量视频下载器（普通视频 + 日常/Story）"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "douyin_dl contributors" }]
+dynamic = ["dependencies"]
+
+[project.scripts]
+douyin-dl = "douyin_dl.__main__:main"
+douyin-dl-gui = "douyin_dl.gui.__main__:main"
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+include = ["douyin_dl*"]
