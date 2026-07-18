@@ -3,7 +3,10 @@
 
 #define MyAppName "抖音下载器"
 #define MyAppNameEn "DouyinDownloader"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion GetEnv("APP_VERSION")
+#if MyAppVersion == ""
+  #define MyAppVersion "1.1.0"
+#endif
 #define MyAppPublisher "douyin_dl contributors"
 #define MyAppURL "https://github.com/liaoweichu/douyin-dl-gui"
 #define MyAppExeName "DouyinDownloader.exe"

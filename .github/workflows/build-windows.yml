@@ -56,8 +56,23 @@ jobs:
           }
           Get-ChildItem dist\DouyinDownloader | Select-Object -First 10
 
+      - name: Determine tag
+        id: tag
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -match 'refs/tags/(v.*)') {
+            $tag = $matches[1]
+          } elseif ($env:INPUT_TAG) {
+            $tag = $env:INPUT_TAG
+          } else {
+            $tag = "v1.0.0-$(Get-Date -Format 'yyyyMMddHHmm')"
+          }
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+
       - name: Compile installer with Inno Setup
         shell: pwsh
+        env:
+          APP_VERSION: ${{ steps.tag.outputs.tag }}
         run: |
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) {
@@ -78,6 +93,10 @@ jobs:
               (Get-Content installer.iss) | Where-Object { $_ -notmatch 'chinesesimp' } | Set-Content installer.iss
             }
           }
+          # 去掉 tag 前缀 v（v1.1.0 → 1.1.0）
+          $ver = $env:APP_VERSION -replace '^v',''
+          $env:APP_VERSION = $ver
+          Write-Host "Building installer version: $ver"
           & $iscc installer.iss
 
       - name: Verify installer
@@ -86,20 +105,6 @@ jobs:
           $installer = Get-ChildItem installer\*.exe | Select-Object -First 1
           if (-not $installer) { throw "Installer not built" }
           Write-Host "Installer: $($installer.Name), Size: $([math]::Round($installer.Length/1MB,2)) MB"
-
-      - name: Determine tag
-        id: tag
-        shell: pwsh
-        run: |
-          if ($env:GITHUB_REF -match 'refs/tags/(v.*)') {
-            $tag = $matches[1]
-          } elseif ($env:INPUT_TAG) {
-            $tag = $env:INPUT_TAG
-          } else {
-            $tag = "v1.0.0-$(Get-Date -Format 'yyyyMMddHHmm')"
-          }
-          Write-Host "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          echo "tag=$tag" >> $env:GITHUB_OUTPUT
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
