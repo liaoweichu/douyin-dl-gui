@@ -42,6 +42,23 @@ def test_extract_short_url_from_share_text():
     assert extract_short_url(text) == "https://v.douyin.com/abc123/"
 
 
+def test_extract_short_url_from_complex_share_command():
+    """复杂分享口令：价格 + hashtag + 标题 + 反引号包裹的 URL + 时间戳 + 尾部乱码。"""
+    text = (
+        "3.89 # 我的千禧回忆杀 # 千禧年风一下就被拿捏住了  "
+        "`https://v.douyin.com/LPnvDp-uU0o/` "
+        "复制此链接，打开抖音搜索，直接观看视频！ :2pm 05/13 QkP:/ i@p.QX"
+    )
+    assert extract_short_url(text) == "https://v.douyin.com/LPnvDp-uU0o/"
+
+
+def test_extract_short_url_mixed_case_and_hyphen():
+    """URL path 段含大小写字母与连字符。"""
+    assert extract_short_url("see https://v.douyin.com/AbCd-EF_xyz-/") == (
+        "https://v.douyin.com/AbCd-EF_xyz-/"
+    )
+
+
 def test_extract_short_url_not_found_raises():
     with pytest.raises(LinkParserError):
         extract_short_url("hello world")
